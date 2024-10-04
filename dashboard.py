@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Mengambil data dari sumber
-day_df = pd.read_csv('https://raw.githubusercontent.com/faradits/Proyek-Analisis-Data/refs/heads/main/dataset/day.csv')
+day_df = pd.read_csv('https://raw.githubusercontent.com/faradits/Proyek-Analisis-Data/refs/heads/main/data/day.csv')
 
 # Mengubah nilai numerik menjadi kategori yang lebih deskriptif
 day_df['season'] = day_df['season'].map({1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'})
