@@ -1,105 +1,123 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from datetime import datetime
 
-# Mengambil data dari sumber
-day_df = pd.read_csv('https://raw.githubusercontent.com/faradits/Proyek-Analisis-Data/refs/heads/main/data/day.csv')
-
-# Mengubah nilai numerik menjadi kategori yang lebih deskriptif
-day_df['season'] = day_df['season'].map({1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'})
-day_df['yr'] = day_df['yr'].map({0: '2011', 1: '2012'})
-day_df['mnth'] = day_df['mnth'].map({1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'})
-day_df['weekday'] = day_df['weekday'].map({0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat'})
-day_df['workingday'] = day_df['workingday'].map({0: 'Holiday', 1: 'Workingday'})
-day_df['weathersit'] = day_df['weathersit'].map({1: 'Clear/Partly Cloudy', 2: 'Cloudy/Mist', 3: 'Light Rain/Light Snow', 4: 'Heavy Rain/Heavy Snow/Thunderstorm'})
-
-# Mengubah kolom yang relevan menjadi tipe data category
-day_df['season'] = day_df['season'].astype('category')
-day_df['yr'] = day_df['yr'].astype('category')
-day_df['mnth'] = day_df['mnth'].astype('category')
-day_df['weekday'] = day_df['weekday'].astype('category')
-day_df['workingday'] = day_df['workingday'].astype('category')
-day_df['weathersit'] = day_df['weathersit'].astype('category')
-
-# Menambahkan kolom total_user sebagai penjumlahan dari casual dan registered
-day_df['total_user'] = day_df['casual'] + day_df['registered']
-
-# Mengonversi kolom 'dteday' menjadi tipe datetime
-day_df['dteday'] = pd.to_datetime(day_df['dteday'])
+# Load data
+url = "https://raw.githubusercontent.com/faradits/Proyek-Analisis-Data/refs/heads/main/all_data.csv"
+all_df = pd.read_csv(url)
 
 # Dashboard Streamlit
-st.set_page_config(page_title="Bike Sharing Data Dashboard", layout="wide")  # Set page layout
-st.title("🚴‍♂️ Bike Sharing Data Dashboard")
+st.set_page_config(page_title="Bike Sharing Data Dashboard")  # Set page layout
+st.title("Bike Sharing Data Dashboard 🚴‍♂️")
 
 # Sidebar untuk filter
 st.sidebar.header("Filter Data")
-selected_year = st.sidebar.selectbox("Select Year", day_df['yr'].unique())
-selected_season = st.sidebar.multiselect("Select Season", day_df['season'].unique(), default=day_df['season'].unique())
-selected_weather = st.sidebar.multiselect("Select Weather", day_df['weathersit'].unique(), default=day_df['weathersit'].unique())
+# Filter berdasarkan tanggal
+start_date = st.sidebar.date_input("Select Start Date", value=datetime(2011, 1, 1))
+end_date = st.sidebar.date_input("Select End Date", value=datetime(2012, 12, 31))
 
-# Input rentang waktu menggunakan kalender
-start_date = st.sidebar.date_input("Start Date", value=day_df['dteday'].min())
-end_date = st.sidebar.date_input("End Date", value=day_df['dteday'].max())
+# Filter berdasarkan musim dan hari kerja
+all_seasons = all_df['season'].unique().tolist()
+selected_season = st.sidebar.multiselect("Select Season", all_seasons, default=all_seasons)
+all_workingdays = all_df['workingday'].unique().tolist()
+selected_workingday = st.sidebar.multiselect("Select Working Day", all_workingdays, default=all_workingdays)
 
-# Filter data sesuai pilihan tahun, musim, cuaca, dan rentang waktu
-filtered_data = day_df[(day_df['yr'] == selected_year) & 
-                       (day_df['season'].isin(selected_season)) & 
-                       (day_df['weathersit'].isin(selected_weather)) & 
-                       (day_df['dteday'] >= pd.to_datetime(start_date)) & 
-                       (day_df['dteday'] <= pd.to_datetime(end_date))]
+# Github link
+st.sidebar.markdown("### Project Repository")
+st.sidebar.write("[GitHub](https://github.com/faradits/Proyek-Analisis-Data)")
 
-st.header(f"Data Summary for Year: {selected_year}")
-st.write(f"Displaying data for the following seasons: {', '.join(selected_season)} and weather conditions: {', '.join(selected_weather)}")
-st.write(filtered_data.describe())
+# Preprocess data
+date_column = 'datetime' if 'datetime' in all_df.columns else 'date'
+all_df[date_column] = pd.to_datetime(all_df[date_column])
+all_df = all_df[(all_df[date_column] >= pd.to_datetime(start_date)) & (all_df[date_column] <= pd.to_datetime(end_date))]
 
-# Visualisasi total pengguna berdasarkan musim
-st.subheader("Total Users by Season")
-season_total = filtered_data.groupby('season')['total_user'].sum().reset_index()
+# Filter data berdasarkan pilihan musim dan hari kerja/libur
+if selected_season:
+    filtered_data = all_df[all_df['season'].isin(selected_season)]
+else:
+    filtered_data = all_df[all_df['season'].isin([])]  # Jika tidak ada musim yang dipilih, hasilkan data kosong
 
-fig, ax = plt.subplots()
-sns.barplot(x='season', y='total_user', data=season_total, ax=ax, palette='viridis')
-ax.set_xlabel('Season')
-ax.set_ylabel('Total Users')
-ax.set_title('Total Users by Season')
-st.pyplot(fig)
+if selected_workingday:
+    filtered_data = filtered_data[filtered_data['workingday'].isin(selected_workingday)]
+else:
+    filtered_data = filtered_data[filtered_data['workingday'].isin([])]  # Jika tidak ada hari kerja yang dipilih, hasilkan data kosong
 
-# Visualisasi total pengguna berdasarkan cuaca
-st.subheader("Total Users by Weather")
-weather_total = filtered_data.groupby('weathersit')['total_user'].sum().reset_index()
+# 1. Visualisasi: Penyewaan sepeda selama jam sibuk pagi dan sore hari
+st.subheader("1. Bike Rentals During Rush Hours")
+st.markdown("This chart shows the number of bike rentals during the morning and evening rush hours.")
 
-fig, ax = plt.subplots()
-sns.barplot(x='weathersit', y='total_user', data=weather_total, ax=ax, palette='coolwarm')
-ax.set_xlabel('Weather Condition')
-ax.set_ylabel('Total Users')
-ax.set_title('Total Users by Weather')
-st.pyplot(fig)
+# Jika data setelah filter kosong, tampilkan pesan bahwa tidak ada data yang tersedia
+if filtered_data.empty:
+    st.warning("No data available for the selected filters.")
+else:
+    filtered_data['rush_hour'] = filtered_data['hour'].apply(
+        lambda x: 'Morning (6:00 - 9:00)' if 6 <= x <= 9 else ('Evening (17:00 - 19:00)' if 17 <= x <= 19 else 'Other')
+    )
 
-# Visualisasi total pengguna kasual vs terdaftar
-st.subheader("Casual vs Registered Users")
-user_type_total = filtered_data[['casual', 'registered']].sum()
+    fig1, ax1 = plt.subplots(figsize=(12, 6))
+    sns.barplot(x='hour', y='total_user', hue='rush_hour', data=filtered_data, palette='Set2', ax=ax1)
+    ax1.set_title('Comparison of Bike Rentals During Rush Hours', fontsize=16)
+    ax1.set_xlabel('Hour of the Day', fontsize=12)
+    ax1.set_ylabel('Total Bike Rentals', fontsize=12)
+    ax1.set_xticks(range(0, 24))
+    st.pyplot(fig1)
 
-fig, ax = plt.subplots()
-ax.pie(user_type_total, labels=['Casual', 'Registered'], autopct='%1.1f%%', startangle=90, colors=['#ff9999','#66b3ff'])
-ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-st.pyplot(fig)
+# 2. Line chart: Which season has the highest number of bike rentals?
+st.subheader("2. Season with the Highest Number of Bike Rentals")
+st.markdown("The line chart compares the average number of bike rentals in each season.")
 
-# Menampilkan data mentah
-st.subheader("Raw Data")
-st.write(filtered_data)
+# Jika data setelah filter kosong, tampilkan pesan
+if filtered_data.empty:
+    st.warning("No data available for the selected filters.")
+else:
+    season_df = filtered_data.groupby('season')['total_user'].mean().reset_index()
 
-# Menambahkan statistik tambahan
-st.subheader("Statistics Summary")
-st.write(f"Average Total Users: {filtered_data['total_user'].mean():.2f}")
-st.write(f"Maximum Total Users: {filtered_data['total_user'].max()}")
-st.write(f"Minimum Total Users: {filtered_data['total_user'].min()}")
+    plt.figure(figsize=(6, 4))
+    sns.lineplot(x='season', y='total_user', data=season_df, marker='o', color='green')
+    plt.title("Average Bike Rentals per Season", fontsize=16)
+    plt.ylabel("Average Number of Rentals", fontsize=12)
+    plt.xlabel("Season", fontsize=12)
+    plt.grid(True)
+    st.pyplot(plt)
 
-# Histogram total pengguna
-st.subheader("Distribution of Total Users")
-fig, ax = plt.subplots()
-sns.histplot(filtered_data['total_user'], bins=20, kde=True, ax=ax)
-ax.set_xlabel('Total Users')
-ax.set_ylabel('Frequency')
-ax.set_title('Distribution of Total Users')
-st.pyplot(fig)
+# 3. Pie chart: Bike rentals on working days vs holidays
+st.subheader("3. Bike Rentals on Working Days vs Holidays")
+st.markdown("The pie chart shows the proportion of bike rentals on working days and holidays.")
+
+# Jika data setelah filter kosong, tampilkan pesan
+if filtered_data.empty:
+    st.warning("No data available for the selected filters.")
+else:
+    day_type_df = filtered_data.groupby('workingday')['total_user'].mean().reset_index()
+
+    # Jika hanya satu tipe hari (workingday atau holiday) yang dipilih, pie chart akan menunjukkan 100% untuk tipe tersebut
+    if len(day_type_df) == 1:
+        labels = ['Holiday'] if day_type_df['workingday'].values[0] == 0 else ['Working Day']
+        sizes = [100]
+    else:
+        labels = ['Holiday', 'Working Day']
+        sizes = day_type_df['total_user'].values
+
+    fig, ax = plt.subplots()
+    ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#FF9999', '#66B2FF'])
+    ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    plt.title("Bike Rentals on Working Days vs Holidays", fontsize=16)
+    st.pyplot(fig)
+
+# Kesimpulan
+st.subheader("Conclusion")
+st.markdown("""
+- **Rush Hours**: From the analysis, it's clear that bike rentals significantly increase during the morning rush hours (6:00 - 9:00 AM) and evening rush hours (5:00 - 7:00 PM), particularly at 8:00 AM, 5:00 PM, and 6:00 PM. This suggests that many people use bikes as a primary mode of transportation for daily activities such as commuting to work, school, or shopping. On holidays, however, the peak rental time shifts to around 1:00 PM.
+  
+- **Seasonal Trend**: The analysis shows that **Fall** is the season with the highest number of bike rentals, followed by **Summer**. **Winter** sees fewer rentals, and **Spring** records the lowest number of rentals. This suggests that users prefer biking during warmer, more pleasant seasons.
+
+- **Working Days vs Holidays**: 51.6% of bike rentals occur on working days, while 48.4% happen on holidays. This slight difference suggests that while bikes are primarily used for commuting during working days, they are also popular for leisure or errands during holidays. Interestingly, during the **Summer**, holiday rentals surpass working day rentals by 51%.
+""")
+
+# Copyright di bagian bawah halaman utama
+st.markdown("""
+---
+© 2024 [Faradita Sabila](https://github.com/faradits)
+""")
